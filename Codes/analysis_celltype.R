@@ -108,17 +108,6 @@ annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_gene
   ))
 }
 
-
-#' 完整的单细胞注释工作流程（包含可视化）
-#' @param query_seurat Seurat对象（可选）
-#' @param query_matrix 查询矩阵
-#' @param ref_matrix 参考矩阵
-#' @param output_dir 输出目录
-#' @param project_name 项目名称
-#' @param create_plots 是否创建可视化图表
-#' @param plot_width 图表宽度
-#' @param plot_height 图表高度
-#' @param plot_dpi 图表分辨率
 analysis_celltype <- function(query_matrix = NULL,ref_matrix = NULL,output_dir = "./sc_annotation_results",project_name = "scAnnotation",create_plots = TRUE,plot_width = 12,plot_height = 10,plot_dpi = 300) {
 required_packages <- c("ggplot2", "RColorBrewer")
   missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
