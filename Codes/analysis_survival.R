@@ -2,10 +2,6 @@
 # analysis_survival.R
 # 输入: Example_annotations.csv, fibroblast_TCGA_samples.csv, TCGA_clinical_data.csv
 # 输出: 5.Survival_prediction文件夹及其所有分析结果
-# 设置工作目录和加载包
-cat("设置工作环境...\n")
-setwd(".")  # 设置工作目录
-# 检查并安装必要的包
 required_packages <- c("tidyverse", "survival", "survminer", "ggplot2", "pheatmap", "ggpubr", "forestplot", "reshape2", "RColorBrewer", "viridis", "cowplot", "gridExtra")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) {
@@ -27,16 +23,10 @@ suppressPackageStartupMessages({
   library(gridExtra)
 })
 
-cat("\n创建输出目录...\n")
 dir.create("5.Survival_prediction", showWarnings = FALSE)
-cat("\n1. 正在加载数据...\n")
-
-# 加载新样本的成纤维细胞数据
 new_samples_df<-read.table("2.Identify_celltype/Example_annotations.csv",header=T,sep=",",row.names=1)
 new_samples_df<-new_samples_df[,-c(1:3)]
 new_samples_df<-t(new_samples_df[,1:16])
-
-# 加载TCGA样本的成纤维细胞数据
 if(file.exists("Example_Data/fibroblast_TCGA_samples.txt")) {
   tcga_fibroblast <- read.table("Example_Data/fibroblast_TCGA_samples.txt",header=T,sep="\t")
   tcga_fibroblast_df <- as.data.frame(tcga_fibroblast)
@@ -47,7 +37,6 @@ if(file.exists("Example_Data/fibroblast_TCGA_samples.txt")) {
 } else {
   stop("错误: 找不到 fibroblast_TCGA_samples.csv 文件")
 }
-# 加载TCGA临床生存数据
 if(file.exists("Example_Data/TCGA_clinical_data.txt")) {
   tcga_clinical <- read.table("Example_Data/TCGA_clinical_data.txt",header=T,sep="\t")
   cat("  TCGA临床数据: ", nrow(tcga_clinical), "个样本 ×", ncol(tcga_clinical), "个变量\n")
@@ -67,7 +56,6 @@ if(!is.null(new_samples_df)) {
 } else {
   fibroblast_prop_new <- NULL
 }
-# 3. 简化的ROC计算函数
 calculate_simple_roc <- function(time, status, marker, time_point) {
   event_at_time <- ifelse(time <= time_point & status == 1, 1, 0)
   valid_idx <- !is.na(event_at_time) & !is.na(marker)
@@ -76,7 +64,6 @@ calculate_simple_roc <- function(time, status, marker, time_point) {
   if(length(unique(event_at_time)) < 2) {
     return(NA) 
   }
-  # 计算AUC
   n <- length(event_at_time)
   n_cases <- sum(event_at_time == 1)
   n_controls <- sum(event_at_time == 0)
@@ -84,7 +71,6 @@ calculate_simple_roc <- function(time, status, marker, time_point) {
   if(n_cases == 0 | n_controls == 0) {
     return(NA)
   }
-  # 计算所有case-control对
   scores_cases <- marker[event_at_time == 1]
   scores_controls <- marker[event_at_time == 0]
   # 计算AUC
@@ -95,7 +81,6 @@ calculate_simple_roc <- function(time, status, marker, time_point) {
   auc <- auc / (n_cases * n_controls)
   return(auc)
 }
-# 4. 主生存分析函数
 analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samples_data = NULL, cancer_type = "all", survival_time = "OS.time", survival_status = "OS") {
   cat(sprintf("\n对癌症类型 '%s' 进行生存分析...\n", cancer_type))
   results <- list()
@@ -111,26 +96,22 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
   } else {
     tcga_clinical_subset <- tcga_clinical_data
   }
-  # 4.2 合并成纤维细胞比例和临床数据
   if(!"sample" %in% colnames(tcga_clinical_subset)) {
     sample_id_col <- colnames(tcga_clinical_subset)[1]
     colnames(tcga_clinical_subset)[colnames(tcga_clinical_subset) == sample_id_col] <- "sample"
   }
-  # 创建分析数据框
   analysis_data <- data.frame(
     sample = tcga_clinical_subset$sample,
     fibroblast_proportion = NA,
     time = as.numeric(tcga_clinical_subset[[survival_time]]),
     status = as.numeric(tcga_clinical_subset[[survival_status]])
   )
-  # 添加成纤维细胞比例
   for(i in 1:nrow(analysis_data)) {
     sample_id <- analysis_data$sample[i]
     if(sample_id %in% names(tcga_fibroblast_data)) {
       analysis_data$fibroblast_proportion[i] <- tcga_fibroblast_data[sample_id]
     }
   }
-  # 移除缺失值
   analysis_data <- analysis_data[complete.cases(analysis_data), ]
   if(nrow(analysis_data) < 10) {
     warning(sprintf("癌症类型 %s 的样本数太少 (%d)，跳过分析", cancer_type, nrow(analysis_data)))
@@ -138,13 +119,10 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
   }
   cat(sprintf("  可用样本数: %d\n", nrow(analysis_data)))
   cat(sprintf("  事件数: %d\n", sum(analysis_data$status)))
-  # 4.3 根据成纤维细胞比例分群
   fibroblast_median <- median(analysis_data$fibroblast_proportion, na.rm = TRUE)
   analysis_data$fibroblast_group <- ifelse(analysis_data$fibroblast_proportion > fibroblast_median, "High", "Low")
   analysis_data$fibroblast_group <- factor(analysis_data$fibroblast_group, levels = c("Low", "High"))
-  # 4.4 生存分析
   surv_obj <- Surv(time = analysis_data$time,  event = analysis_data$status)
-  # Cox比例风险模型
   tryCatch({
     cox_model <- coxph(surv_obj ~ fibroblast_proportion, data = analysis_data)
     cox_summary <- summary(cox_model)
@@ -165,7 +143,6 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
     results$hr_ci <- c(NA, NA)
     results$p_value <- NA
   })
-  # Log-rank检验
   tryCatch({
     logrank_test <- survdiff(surv_obj ~ fibroblast_group, data = analysis_data)
     logrank_p <- 1 - pchisq(logrank_test$chisq, length(logrank_test$n) - 1)
@@ -175,7 +152,6 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
     cat(sprintf("  Log-rank检验失败: %s\n", e$message))
     results$logrank_p <- NA
   })
-  # 4.5 简化的ROC分析
   if(nrow(analysis_data) >= 20) {
     tryCatch({
       median_time <- median(analysis_data$time[analysis_data$status == 1], na.rm = TRUE)
@@ -188,7 +164,6 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
       results$auc_median <- NA
     })
   }
-  # 4.6 预测新样本
   if(!is.null(new_samples_data)) {
     new_samples_risk <- data.frame(
       sample = names(new_samples_data),
@@ -203,7 +178,6 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
     }
     results$new_samples_risk <- new_samples_risk
   }
-  # 4.7 保存其他结果
   results$analysis_data <- analysis_data
   results$fibroblast_median <- fibroblast_median
   results$cancer_type <- cancer_type
@@ -212,7 +186,6 @@ analysis_survival <- function(tcga_fibroblast_data, tcga_clinical_data, new_samp
   results$surv_obj <- surv_obj
   return(results)
 }
-# 5. 对所有癌症类型进行分析
 cat("\n3. 对所有癌症类型进行生存分析...\n")
 # 获取所有癌症类型
 if("cancer_type" %in% colnames(tcga_clinical)) {
@@ -226,10 +199,8 @@ if("cancer_type" %in% colnames(tcga_clinical)) {
   cancer_types <- "All_TCGA"
   tcga_clinical$cancer_type <- "All_TCGA"
 }
-# 存储所有癌症类型的结果
 all_results <- list()
 summary_results <- data.frame()
-# 对每种癌症类型进行分析
 for(cancer in cancer_types) {
   cat(sprintf("  分析 %s... ", cancer))
   result <- analysis_survival(tcga_fibroblast_data = fibroblast_prop_tcga,tcga_clinical_data = tcga_clinical,new_samples_data = fibroblast_prop_new,cancer_type = cancer)
@@ -254,9 +225,7 @@ for(cancer in cancer_types) {
     cat("跳过（样本不足）\n")
   }
 }
-# 6. 可视化函数
-cat("\n4. 生成可视化图表...\n")
-# 6.1 修复的生存曲线图函数
+
 create_survival_plots <- function(results_list, output_dir) {
   for(cancer in names(results_list)) {
     result <- results_list[[cancer]]    
@@ -265,35 +234,13 @@ create_survival_plots <- function(results_list, output_dir) {
     # 准备数据
     surv_data <- result$analysis_data
     surv_data$group <- surv_data$fibroblast_group
-    # 确保有足够的数据点
     if(length(unique(surv_data$group)) < 2) next
     tryCatch({
-      # 创建生存曲线
       fit <- survfit(Surv(time, status) ~ group, data = surv_data)
-      # 使用更新的参数避免警告
-      p <- ggsurvplot(fit,
-                     data = surv_data,
-                     pval = TRUE,
-                     pval.method = TRUE,
-                     conf.int = FALSE,
-                     risk.table = TRUE,
-                     risk.table.height = 0.25,
-                     ggtheme = theme_minimal(),
-                     palette = c("#2E9FDF", "#E7B800"),
-                     title = paste("Survival Analysis -", cancer),
-                     xlab = "Time (days)",
-                     ylab = "Survival Probability",
-                     legend = "none",
-                     legend.title = "Fibroblast",
-                     legend.labs = c("Low", "High"),
-                     font.title = 16,
-                     font.x = 14,
-                     font.y = 14,
-                     font.tickslab = 12)
+      p <- ggsurvplot(fit,data = surv_data,pval = TRUE,pval.method = TRUE,conf.int = FALSE,risk.table = TRUE,risk.table.height = 0.25,ggtheme = theme_minimal(),palette = c("#2E9FDF", "#E7B800"),title = paste("Survival Analysis -", cancer),xlab = "Time (days)",ylab = "Survival Probability",legend = "none",legend.title = "Fibroblast",legend.labs = c("Low", "High"),font.title = 16,font.x = 14,font.y = 14,font.tickslab = 12)
       plt<-arrange_ggsurvplots(list(p),nrow=1,ncol=1)
       dev.off()
       dev.off()
-      # 保存图形
       output_file <- file.path(output_dir, paste0("survival_curve_", gsub("[^A-Za-z0-9]", "_", cancer), ".png"))
       ggsave(output_file, plt, width = 10, height = 8)
     }, error = function(e) {
@@ -302,7 +249,6 @@ create_survival_plots <- function(results_list, output_dir) {
   }
   cat("  生存曲线图已保存\n")
 }
-# 6.2 森林图
 create_forest_plot <- function(summary_df, output_path) {
   summary_df_clean <- summary_df[!is.na(summary_df$HR) & !is.na(summary_df$P_Value), ]
   if(nrow(summary_df_clean) == 0) {
@@ -322,23 +268,13 @@ create_forest_plot <- function(summary_df, output_path) {
   upper <- c(NA, summary_df_clean$HR_Upper)
   tryCatch({
     png(output_path, width = 1200, height=1200)
-    forestplot(labeltext = tabletext,
-               mean = mean,
-               lower = lower,
-               upper = upper,
-               is.summary = c(TRUE, rep(FALSE, nrow(summary_df_clean))),
-               xlab = "Hazard Ratio",
-               zero = 1,
-               boxsize = 0.3,
-               col = fpColors(box = "royalblue", line = "darkblue", summary = "royalblue"),
-               txt_gp = fpTxtGp(label = gpar(cex = 0.8),ticks = gpar(cex = 0.8),xlab = gpar(cex = 1)))
+    forestplot(labeltext = tabletext,mean = mean,lower = lower,upper = upper,is.summary = c(TRUE, rep(FALSE, nrow(summary_df_clean))),xlab = "Hazard Ratio",zero = 1,boxsize = 0.3,col = fpColors(box = "royalblue", line = "darkblue", summary = "royalblue"),txt_gp = fpTxtGp(label = gpar(cex = 0.8),ticks = gpar(cex = 0.8),xlab = gpar(cex = 1)))
     dev.off()
     cat("  森林图已保存到:", output_path, "\n")
   }, error = function(e) {
     cat("  无法生成森林图:", e$message, "\n")
   })
 }
-# 6.3 新样本风险预测图
 create_risk_prediction_plot <- function(all_results, output_path) {
   if(is.null(fibroblast_prop_new)) {
     cat("  没有新样本数据，跳过风险预测图\n")
@@ -367,23 +303,13 @@ create_risk_prediction_plot <- function(all_results, output_path) {
     heatmap_data[is.na(heatmap_data)] <- colMeans(heatmap_data, na.rm = TRUE)
     heatmap_data_scaled <- as.matrix(scale(heatmap_data))
     png(output_path, width = 1000, height = 800)
-    pheatmap(heatmap_data_scaled,
-             main = "New Samples Risk Prediction Across Cancer Types",
-             color = colorRampPalette(c("blue", "white", "red"))(100),
-             cluster_rows = TRUE,
-             cluster_cols = TRUE,
-             show_rownames = ifelse(nrow(heatmap_data_scaled) <= 50, TRUE, FALSE),
-             show_colnames = TRUE,
-             fontsize_row = 10,
-             fontsize_col = 10,
-             border_color = NA)
+    pheatmap(heatmap_data_scaled,main = "New Samples Risk Prediction Across Cancer Types",color = colorRampPalette(c("blue", "white", "red"))(100),cluster_rows = TRUE,cluster_cols = TRUE,show_rownames = ifelse(nrow(heatmap_data_scaled) <= 50, TRUE, FALSE),show_colnames = TRUE,fontsize_row = 10,fontsize_col = 10,border_color = NA)
     dev.off()
     cat("  新样本风险预测图已保存到:", output_path, "\n")
   }, error = function(e) {
     cat("  无法生成风险预测热图:", e$message, "\n")
   })
 }
-# 6.4 HR分布图
 create_hr_distribution_plot <- function(summary_df, output_path) {
   plot_data <- summary_df[!is.na(summary_df$HR) & !is.na(summary_df$P_Value), ]
   if(nrow(plot_data) == 0) {
@@ -407,7 +333,6 @@ create_hr_distribution_plot <- function(summary_df, output_path) {
     cat("  无法生成HR分布图:", e$message, "\n")
   })
 }
-# 6.5 新样本风险条形图
 create_new_samples_risk_barplot <- function(all_results, output_path) {
   if(is.null(fibroblast_prop_new)) {
     cat("  没有新样本数据，跳过风险条形图\n")
@@ -438,7 +363,6 @@ create_new_samples_risk_barplot <- function(all_results, output_path) {
     cat("  无法生成新样本风险条形图:", e$message, "\n")
   })
 }
-# 6.6 AUC性能图
 create_auc_plot <- function(summary_df, output_path) {
   plot_data <- summary_df[!is.na(summary_df$AUC_Median), ]
   if(nrow(plot_data) == 0) {
@@ -460,7 +384,6 @@ create_auc_plot <- function(summary_df, output_path) {
     cat("  无法生成AUC性能图:", e$message, "\n")
   })
 }
-# 6.7 修复的汇总图
 create_summary_plot <- function(summary_df, output_path) {
   plot_data <- summary_df[!is.na(summary_df$HR) & !is.na(summary_df$P_Value), ]
   if(nrow(plot_data) == 0) {
@@ -468,7 +391,6 @@ create_summary_plot <- function(summary_df, output_path) {
     return(NULL)
   }
   tryCatch({
-    # 创建三个子图
     p1 <- ggplot(plot_data, aes(x = N_Samples)) +
       geom_histogram(fill = "steelblue", color = "white", bins = 20) +
       labs(title = "Distribution of Sample Sizes",x = "Number of Samples",y = "Count") +theme_minimal()
@@ -494,11 +416,8 @@ create_summary_plot <- function(summary_df, output_path) {
     cat("  无法生成汇总图:", e$message, "\n")
   })
 }
-# 7. 执行可视化
-cat("\n5. 执行可视化...\n")
-# 生成生存曲线图
+
 create_survival_plots(all_results, "5.Survival_prediction/visualizations")
-# 生成森林图
 if(nrow(summary_results) > 0) {
   create_forest_plot(summary_results, "5.Survival_prediction/")
   create_hr_distribution_plot(summary_results,"5.Survival_prediction/hr_distribution.png")
@@ -542,7 +461,6 @@ generate_comprehensive_report <- function(all_results, summary_df, output_path) 
     }
   }
   report_lines <- c(report_lines, "")
-  # 高风险癌症类型
   high_risk_cancers <- valid_results %>% filter(HR > 1.5 & Significant == "Yes")
   if(nrow(high_risk_cancers) > 0) {
     report_lines <- c(report_lines, "3. HIGH-RISK CANCER TYPES (HR > 1.5)")
@@ -552,7 +470,6 @@ generate_comprehensive_report <- function(all_results, summary_df, output_path) 
     }
     report_lines <- c(report_lines, "")
   }
-  # 保护性癌症类型
   protective_cancers <- valid_results %>% filter(HR < 0.67 & Significant == "Yes")
   if(nrow(protective_cancers) > 0) {
     report_lines <- c(report_lines, "4. PROTECTIVE CANCER TYPES (HR < 0.67)")
@@ -562,7 +479,6 @@ generate_comprehensive_report <- function(all_results, summary_df, output_path) 
     }
     report_lines <- c(report_lines, "")
   }
-  # AUC分析
   auc_cancers <- valid_results[!is.na(valid_results$AUC_Median), ]
   if(nrow(auc_cancers) > 0) {
     report_lines <- c(report_lines, "5. PREDICTIVE PERFORMANCE (AUC)")
@@ -576,7 +492,6 @@ generate_comprehensive_report <- function(all_results, summary_df, output_path) 
       report_lines <- c(report_lines, "")
     }
   }
-  # 新样本预测
   if(!is.null(fibroblast_prop_new)) {
     report_lines <- c(report_lines, "6. NEW SAMPLES PREDICTION")
     report_lines <- c(report_lines, paste(rep("-", 50), collapse = ""))
@@ -604,7 +519,6 @@ generate_comprehensive_report <- function(all_results, summary_df, output_path) 
     }
   }
   report_lines <- c(report_lines, "")
-  # 输出文件
   report_lines <- c(report_lines, "7. OUTPUT FILES")
   report_lines <- c(report_lines, paste(rep("-", 50), collapse = ""))
   report_lines <- c(report_lines, "The following files have been generated:")
@@ -630,9 +544,7 @@ generate_comprehensive_report <- function(all_results, summary_df, output_path) 
   cat(paste(report_lines, collapse = "\n"), "\n")
   return(report_lines)
 }
-
 report <- generate_comprehensive_report(all_results, summary_results,"5.Survival_prediction/analysis_report.txt")
-cat("\n7. 保存模型和中间结果...\n")
 tryCatch({
   saveRDS(all_results, "5.Survival_prediction/all_results.rds")
   saveRDS(summary_results, "5.Survival_prediction/summary_results.rds")

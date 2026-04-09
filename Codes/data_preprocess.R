@@ -2,21 +2,6 @@
 #' data_preprocess.R
 # 输入: 单细胞转录组表达矩阵，行是基因，列是细胞
 # 输出: 1.Data_preprocess文件夹及其所有分析结果
-#' 单细胞表达谱矩阵预处理函数
-#' 对单细胞表达谱矩阵进行质量控制、过滤和标准化
-#' @param input 表达谱矩阵，行是基因，列是细胞
-#' @param gene_min_cells 基因过滤条件：一个基因至少要在多少个细胞中表达（或百分比），默认5%（0.05）
-#' @param cell_min_genes 细胞过滤条件：一个细胞至少要表达多少个基因，默认200
-#' @param cell_max_genes 细胞过滤条件：一个细胞最多表达多少个基因（用于去除doublet），默认NULL（不过滤）
-#' @param cell_max_mito 细胞过滤条件：线粒体基因表达百分比最大值，默认20%（0.2）
-#' @param normalization 标准化方法："log"（log1p），"zscore"，"cpm"，"scran" 或 "none"
-#' @param scale_factor 缩放因子，用于CPM标准化，默认1e6
-#' @param do_scaling 是否在log转换后进行z-score缩放，默认TRUE
-#' @param remove_mito 是否移除线粒体基因，默认FALSE
-#' @param mito_pattern 线粒体基因匹配模式，默认"^MT-|^mt-"
-#' @param do_hvg 是否选择高变基因，默认FALSE
-#' @param n_hvg 选择的高变基因数量，默认2000
-#' @param verbose 是否显示详细信息，默认TRUE
 data_preprocess <- function(input,gene_min_cells = 0.05,cell_min_genes = 200,cell_max_genes = NULL,cell_max_mito = 0.2,normalization = "log",scale_factor = 1e6,do_scaling = TRUE,remove_mito = FALSE,mito_pattern = "^MT-|^mt-",do_hvg = FALSE,n_hvg = 2000,verbose = TRUE,output_dir="1.Data_preprocess") {
   expr_matrix<-read.table(input,header=T,sep="\t",row.names=1)
   if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)}
@@ -180,7 +165,6 @@ data_preprocess <- function(input,gene_min_cells = 0.05,cell_min_genes = 200,cel
     expr_norm <- expr_norm[hvg_selected, ]
     count_matrix <- count_matrix[hvg_selected, ]
   }
-  
   if (verbose) {
     cat(sprintf("原始矩阵: %d 基因 × %d 细胞\n", nrow(original_matrix), ncol(original_matrix)))
     cat(sprintf("处理后矩阵: %d 基因 × %d 细胞\n", nrow(expr_norm), ncol(expr_norm)))
@@ -195,9 +179,6 @@ data_preprocess <- function(input,gene_min_cells = 0.05,cell_min_genes = 200,cel
     mito_genes = mito_genes)
   return(result)
 }
-#' @param result 预处理结果对象
-#' @param output_dir 输出目录
-#' @export
 basic_visualize_preprocessing <- function(result, output_dir = ".") {
   if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)}
   cell_stats <- result$cell_stats

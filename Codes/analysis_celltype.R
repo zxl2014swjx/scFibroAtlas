@@ -2,15 +2,6 @@
 #' analysis_celltype.R
 # 输入: data_preprocess.txt, 以及跨组织人体成纤维细胞亚型参考图谱
 # 输出: 2.Identify_celltype文件夹及其所有分析结果
-#' 完整的单细胞注释工作流程（包含可视化）
-#' @param query_matrix 查询矩阵
-#' @param ref_matrix 参考矩阵
-#' @param output_dir 输出目录
-#' @param project_name 项目名称
-#' @param create_plots 是否创建可视化图表
-#' @param plot_width 图表宽度
-#' @param plot_height 图表高度
-#' @param plot_dpi 图表分辨率
 analysis_celltype <- function(query_matrix = NULL,ref_matrix = NULL,output_dir = "./2.Identify_celltype",project_name = "Example",create_plots = TRUE,plot_width = 12,plot_height = 10,plot_dpi = 300) {
 required_packages <- c("ggplot2", "RColorBrewer")
   missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
@@ -19,7 +10,6 @@ required_packages <- c("ggplot2", "RColorBrewer")
   library(ggplot2)
   library(RColorBrewer)
   if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)} 
-
 annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_genes = 2000,min_confidence = 0.1) {
   query_matrix<-read.table(query_matrix,header=T,sep="\t",row.names=1)
   ref_matrix<-read.table(ref_matrix,header=T,sep="\t",row.names=1)
@@ -65,7 +55,6 @@ annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_gene
     rownames(similarity_matrix) <- colnames(query)
     colnames(similarity_matrix) <- colnames(ref)
   } else if (method == "cosine") {
-    # 余弦相似性
     for (i in 1:n_cells) {
       cell_expr <- query[, i]
       for (j in 1:n_celltypes) {
@@ -86,7 +75,6 @@ annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_gene
   } else {
     stop(sprintf("不支持的方法: %s", method))
   }
-  cat("Step 6: 生成预测结果...\n")
   predictions <- character(n_cells)
   confidence_scores <- numeric(n_cells)
   for (i in 1:n_cells) {
@@ -134,7 +122,6 @@ annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_gene
     min_confidence = 1e-5)
   end_time <- Sys.time()
   cat(sprintf("注释完成，耗时: %.1f 分钟\n", as.numeric(difftime(end_time, start_time, units = "mins"))))
-
 create_basic_plots <- function(annotation_result, plot_dir, project_name,plot_width, plot_height, plot_dpi) {
   df <- annotation_result$predictions
   p1 <- ggplot(df, aes(x = confidence)) +
@@ -147,7 +134,6 @@ create_basic_plots <- function(annotation_result, plot_dir, project_name,plot_wi
           plot.subtitle = element_text(hjust = 0.5, size = 10),
           panel.grid.minor = element_blank())
     ggsave(file.path(plot_dir, paste0(project_name, "_confidence_distribution.png")), p1, width = plot_width, height = plot_height, dpi = plot_dpi)
-
   p2 <- ggplot(df, aes(x = predicted_celltype, y = confidence, fill = predicted_celltype)) +
     geom_boxplot(alpha = 0.7, outlier.size = 0.5) +
     geom_hline(yintercept = 0.5, linetype = "dashed", color = "red", size = 0.5) +
@@ -157,8 +143,7 @@ create_basic_plots <- function(annotation_result, plot_dir, project_name,plot_wi
           legend.position = "none",
           plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
           panel.grid.major.x = element_blank())
-    ggsave(file.path(plot_dir, paste0(project_name, "_confidence_by_celltype.png")), p2, width = plot_width, height = plot_height, dpi = plot_dpi)
-           
+    ggsave(file.path(plot_dir, paste0(project_name, "_confidence_by_celltype.png")), p2, width = plot_width, height = plot_height, dpi = plot_dpi)     
   celltype_counts <- as.data.frame(table(df$predicted_celltype))
   colnames(celltype_counts) <- c("CellType", "Count")
   celltype_counts <- celltype_counts[order(celltype_counts$Count, decreasing = TRUE), ]
@@ -177,7 +162,6 @@ create_basic_plots <- function(annotation_result, plot_dir, project_name,plot_wi
   conf_summary <- do.call(data.frame, conf_summary)
   colnames(conf_summary) <- c("CellType", "mean_confidence", "sd_confidence")
   ggsave(file.path(plot_dir, paste0(project_name, "_celltype_distribution.png")), p3, width = plot_width, height = plot_height, dpi = plot_dpi)
-
   p4 <- ggplot(conf_summary, aes(x = reorder(CellType, -mean_confidence), y = mean_confidence, fill = mean_confidence)) +
     geom_bar(stat = "identity") +
     geom_errorbar(aes(ymin = mean_confidence - sd_confidence, ymax = mean_confidence + sd_confidence), width = 0.2) +
@@ -189,7 +173,6 @@ create_basic_plots <- function(annotation_result, plot_dir, project_name,plot_wi
           panel.grid.major.x = element_blank())
     ggsave(file.path(plot_dir, paste0(project_name, "_mean_confidence_heatmap.png")), p4, width = plot_width, height = plot_height, dpi = plot_dpi)
 }
-
 create_advanced_plots <- function(annotation_result, plot_dir, project_name,plot_width, plot_height, plot_dpi) {
   df <- annotation_result$predictions
   sim_matrix <- annotation_result$similarity_matrix
@@ -209,7 +192,6 @@ create_advanced_plots <- function(annotation_result, plot_dir, project_name,plot
           axis.text.y = element_text(size = 6),
           plot.title = element_text(hjust = 0.5, size = 12, face = "bold"))
     ggsave(file.path(plot_dir, paste0(project_name, "_similarity_heatmap.png")), p1, width = plot_width, height = plot_height, dpi = plot_dpi)
-
   top_similarities <- apply(sim_matrix, 1, max)
   celltype_top_sim <- data.frame(CellType = df$predicted_celltype,TopSimilarity = top_similarities)
   p2 <- ggplot(celltype_top_sim, aes(x = CellType, y = TopSimilarity, fill = CellType)) +
@@ -223,7 +205,6 @@ create_advanced_plots <- function(annotation_result, plot_dir, project_name,plot
           plot.title = element_text(hjust = 0.5, size = 12, face = "bold"),
           panel.grid.major.x = element_blank())
     ggsave(file.path(plot_dir, paste0(project_name, "_top_similarity_violin.png")), p2, width = plot_width, height = plot_height, dpi = plot_dpi)
-
   celltype_avg_sim <- aggregate(. ~ df$predicted_celltype, as.data.frame(sim_matrix), mean)
   rownames(celltype_avg_sim) <- celltype_avg_sim[, 1]
   celltype_avg_sim <- as.matrix(celltype_avg_sim[, -1])
@@ -238,7 +219,6 @@ create_advanced_plots <- function(annotation_result, plot_dir, project_name,plot
     theme(axis.text.x = element_text(angle = 45, hjust = 1),
           plot.title = element_text(hjust = 0.5, size = 12, face = "bold"))
     ggsave(file.path(plot_dir, paste0(project_name, "_avg_similarity_heatmap.png")), p3, width = plot_width, height = plot_height, dpi = plot_dpi)
-
   plot_data <- data.frame(Cell = df$cell_id,CellType = df$predicted_celltype,Confidence = df$confidence,TopSimilarity = top_similarities)
   p4 <- ggplot(plot_data, aes(x = TopSimilarity, y = Confidence, color = CellType)) +
     geom_point(alpha = 0.6, size = 1) +
@@ -250,7 +230,6 @@ create_advanced_plots <- function(annotation_result, plot_dir, project_name,plot
     theme(plot.title = element_text(hjust = 0.5, size = 12, face = "bold"))
     ggsave(file.path(plot_dir, paste0(project_name, "_confidence_vs_similarity.png")), p4, width = plot_width, height = plot_height, dpi = plot_dpi)
 }
-
 save_results <- function(annotation_result, output_dir, project_name) {
   result_file <- file.path(output_dir, sprintf("%s_annotations.csv", project_name))
   write.csv(annotation_result$predictions, result_file, row.names = FALSE)

@@ -2,10 +2,6 @@
 #' analysis_senescence.R
 # 输入: data_preprocess.txt, 用户自定义features基因列表
 # 输出: 3.Senescence_score文件夹及其所有分析结果
-# 设置工作目录和加载包
-cat("设置工作环境...\n")
-setwd(".")  # 设置工作目录
-# 检查并安装必要的包
 required_packages <- c("reshape2", "pheatmap", "ggplot2")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
 if(length(new_packages)) {
@@ -67,19 +63,14 @@ calculate_module_score <- function(expr_matrix, features,
     }
   }
   pool <- pool %||% rownames(expr_matrix)
-  # 计算每个基因在所有样本中的平均表达量
   if (verbose) message("Calculating gene average expression...")
   gene_means <- Matrix::rowMeans(expr_matrix[pool, , drop = FALSE])
   gene_means <- gene_means[order(gene_means)]
-  # 将基因按表达量分箱
   if (verbose) message("Binning genes by expression level...")
-  # 添加微小噪声以避免平局
   gene_means_noisy <- gene_means + rnorm(n = length(gene_means)) / 1e30
-  # 使用cut_number将基因分成nbin个箱
   gene_bins <- cut(x = gene_means_noisy, breaks = nbin, labels = FALSE, include.lowest = TRUE)
   names(gene_bins) <- names(gene_means)
   n_modules <- length(features_list)
-  # 为每个模块选择背景基因
   if (verbose) message("Selecting control genes...")
   ctrl_genes <- vector("list", length = n_modules)
   for (i in 1:n_modules) {
@@ -87,15 +78,11 @@ calculate_module_score <- function(expr_matrix, features,
     ctrl_genes[[i]] <- character(0)
     for (gene in module_genes) {
       if (gene %in% names(gene_bins)) {
-        # 找到与目标基因在同一箱内的所有基因
         same_bin <- names(gene_bins)[gene_bins == gene_bins[gene]]
-        # 移除目标基因本身
         same_bin <- setdiff(same_bin, gene)
-        # 从同一箱中随机选择ctrl个基因作为背景
         if (length(same_bin) >= ctrl) {
           selected <- sample(same_bin, size = ctrl, replace = FALSE)
         } else {
-          # 如果同一箱内基因不够，使用所有可用基因
           selected <- same_bin
           if (verbose && length(same_bin) < ctrl) {
             message(paste("  Warning: Only", length(same_bin), "control genes available for", gene,  "(requested", ctrl, ")"))
@@ -106,7 +93,6 @@ calculate_module_score <- function(expr_matrix, features,
     }
     ctrl_genes[[i]] <- unique(ctrl_genes[[i]])
   }
-  # 计算背景基因的平均表达
   if (verbose) message("Calculating control gene scores...")
   ctrl_scores <- matrix(0, nrow = n_modules, ncol = ncol(expr_matrix))
   for (i in 1:n_modules) {
@@ -117,14 +103,12 @@ calculate_module_score <- function(expr_matrix, features,
       ctrl_scores[i, ] <- 0
     }
   }
-  # 计算目标基因模块的平均表达
   if (verbose) message("Calculating module gene scores...")
   module_scores <- matrix(0, nrow = n_modules, ncol = ncol(expr_matrix))
   for (i in 1:n_modules) {
     module_genes <- features_list[[i]]
     module_scores[i, ] <- Matrix::colMeans(expr_matrix[module_genes, , drop = FALSE])
   }
-  # 计算调整后的模块得分：模块基因平均表达 - 背景基因平均表达
   if (verbose) message("Calculating adjusted module scores...")
   adjusted_scores <- module_scores - ctrl_scores
   # 设置行列名
@@ -134,7 +118,6 @@ calculate_module_score <- function(expr_matrix, features,
     rownames(adjusted_scores) <- names(features_list)
   }
   colnames(adjusted_scores) <- colnames(expr_matrix)
-  # 转换为数据框（样本为行，模块为列）
   result_df <- as.data.frame(t(adjusted_scores))
   if (verbose) message("Module score calculation completed!")
   return(result_df)
@@ -142,11 +125,6 @@ calculate_module_score <- function(expr_matrix, features,
 module_scores <- calculate_module_score(expr_matrix = expr_mat,features = gene_modules,nbin = 24,ctrl = 50,verbose = TRUE)
 write.table(module_scores,"3.Senescence_score/module_scores.txt",sep="\t",quote=F)
 
-#' 可视化模块得分
-#' 绘制模块得分的可视化图形
-#' @param module_scores 模块得分
-#' @param output_file 输出文件路径
-#' @param plot_type 图形类型
 visualize_module_scores <- function(module_scores, output_file = NULL, plot_type = "heatmap") {
   if (!require("ggplot2", quietly = TRUE) || !require("pheatmap", quietly = TRUE)) {install.packages(c("ggplot2", "pheatmap"))}
   library(ggplot2)

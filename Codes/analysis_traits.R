@@ -3,9 +3,6 @@
 # 性状预测分析脚本
 # 输入: gene_traits_matrix.csv, normalized_gene_samples.csv, fibroblast_samples.csv
 # 输出: 4.Traits_association文件夹及其所有分析结果
-# 设置工作目录和加载包
-cat("设置工作环境...\n")
-setwd(".")  # 设置工作目录
 required_packages <- c("tidyverse", "reshape2", "pheatmap", "ggplot2", "ggdendro", 
                       "corrplot", "RColorBrewer", "viridis", "ggpubr", "ComplexHeatmap")
 new_packages <- required_packages[!(required_packages %in% installed.packages()[,"Package"])]
@@ -24,18 +21,13 @@ suppressPackageStartupMessages({
   library(viridis)
   library(ggpubr)
 })
-
-cat("\n创建输出目录...\n")
 dir.create("4.Traits_association", showWarnings = FALSE)
-cat("\n1. 正在加载数据...\n")
 gene_traits_df<-read.table("Example_Data/Result_scDRS_correlations.txt",header=T,sep="\t",row.names=1)
 gene_samples_df<-read.table("1.Data_preprocess/data_preprocessed.txt",header=T,sep="\t",row.names=1)
 fibroblast_df<-read.table("2.Identify_celltype/Example_annotations.csv",
   header=T,sep=",",row.names=1)
 fibroblast_df<-fibroblast_df[,-c(1:3)]
 fibroblast_df<-t(fibroblast_df[,1:16])
-
-cat("\n2. 进行数据预处理和验证...\n")
 common_samples <- intersect(colnames(gene_samples_df), colnames(fibroblast_df))
 cat("  基因表达和成纤维细胞数据中的共同样本数: ", length(common_samples), "\n")
 if(length(common_samples) == 0) {
@@ -57,9 +49,6 @@ gene_samples_df[1:6,1:6]
 dim(fibroblast_df)
 fibroblast_df[1:6,1:6]
 
-
-# 3. 性状预测计算函数
-cat("\n3. 正在进行性状预测计算...\n")
 predict_traits <- function(gene_expression, gene_traits_matrix, fibroblast_data) {
   traits_prediction <- matrix(0, nrow = ncol(gene_expression),ncol = ncol(gene_traits_matrix),dimnames = list(colnames(gene_expression),colnames(gene_traits_matrix)))
   for(trait in colnames(gene_traits_matrix)) {
@@ -77,9 +66,7 @@ predict_traits <- function(gene_expression, gene_traits_matrix, fibroblast_data)
       }
     }
   }
-
   traits_pred_df <- as.data.frame(traits_prediction)
-  # 获取成纤维细胞比例（假设第一行是比例）
   if(nrow(fibroblast_data) > 0) {
     fibroblast_proportion <- as.numeric(fibroblast_data[1, ])
     names(fibroblast_proportion) <- colnames(fibroblast_data)
@@ -94,8 +81,6 @@ pre_traits_pred<-predict_traits(gene_samples_df,gene_traits_df,fibroblast_df)
 traits_pred<-pre_traits_pred$traits
 fibroblast_prop<-pre_traits_pred$fibroblast
 
-# 4. 性状分类和富集分析
-cat("\n4. 进行性状分类和富集分析...\n")
 classify_traits <- function(traits_df, threshold = 1.0) {
   trait_classes <- data.frame(
     Sample = rownames(traits_df),
@@ -109,7 +94,6 @@ classify_traits <- function(traits_df, threshold = 1.0) {
   for(i in 1:nrow(traits_df)) {
     sample_name <- rownames(traits_df)[i]
     sample_traits <- traits_df[i, ]
-    # 找出高风险的性状（得分高）
     high_risk_idx <- which(sample_traits > threshold)
     protective_idx <- which(sample_traits < -threshold)
     neutral_idx <- which(sample_traits >= -threshold & sample_traits <= threshold)
@@ -125,8 +109,6 @@ classify_traits <- function(traits_df, threshold = 1.0) {
 trait_classes <- classify_traits(traits_pred)
 write.csv(trait_classes, "4.Traits_association/trait_classification.csv", row.names = FALSE)
 
-# 5. 生成可视化结果
-cat("\n5. 生成可视化图表...\n")
 create_heatmap <- function(traits_df, output_path) {
   plot_data <- as.matrix(t(traits_df)) 
   if(nrow(plot_data) > 50) {
@@ -146,7 +128,6 @@ create_heatmap <- function(traits_df, output_path) {
 }
 create_heatmap(traits_pred, "4.Traits_association/traits_heatmap.png")
 
-# 5.2 性状分布箱线图
 create_trait_distribution <- function(traits_df, output_path) {
   trait_vars <- apply(traits_df, 2, var)
   top_traits <- names(sort(trait_vars, decreasing = TRUE))[1:min(20, ncol(traits_df))]
@@ -166,7 +147,6 @@ create_trait_distribution <- function(traits_df, output_path) {
 }
 create_trait_distribution(traits_pred, "4.Traits_association/trait_distribution.png")
 
-# 5.3 成纤维细胞比例与性状相关性
 create_fibroblast_correlation <- function(traits_df, fibroblast_prop, output_path) {
   correlations <- sapply(traits_df, function(x) {
     cor(x, fibroblast_prop, use = "complete.obs")})
@@ -192,7 +172,6 @@ create_fibroblast_correlation <- function(traits_df, fibroblast_prop, output_pat
 }
 create_fibroblast_correlation(traits_pred, fibroblast_prop, "4.Traits_association/fibroblast_correlation.png")
 
-# 5.4 样本性状风险评分
 create_risk_score_plot <- function(trait_classes, output_path) {
   plot_data <- trait_classes %>%
     arrange(Trait_Risk_Score) %>%
@@ -209,7 +188,6 @@ create_risk_score_plot <- function(trait_classes, output_path) {
 }
 create_risk_score_plot(trait_classes, "4.Traits_association/risk_scores.png")
 
-# 5.5 性状相关性网络图
 create_trait_network <- function(traits_df, output_path, top_n = 30) {
   trait_corr <- cor(traits_df, use = "complete.obs")
   if(ncol(trait_corr) > top_n) {
@@ -227,8 +205,6 @@ create_trait_network <- function(traits_df, output_path, top_n = 30) {
 }
 create_trait_network(traits_pred, "4.Traits_association/trait_correlation_network.png")
 
-# 6. 生成分析报告
-cat("\n6. 生成分析报告...\n")
 generate_analysis_report <- function(traits_df, trait_classes, fibroblast_prop, output_path) {
   report_lines <- c()
   report_lines <- c(report_lines, paste(rep("=", 60), collapse = ""))
@@ -298,7 +274,6 @@ generate_analysis_report <- function(traits_df, trait_classes, fibroblast_prop, 
   return(report_lines)
 }
 report <- generate_analysis_report(traits_pred, trait_classes, fibroblast_prop,  "4.Traits_association/analysis_report.txt")
-cat("\n7. 保存所有结果文件...\n")
 write.csv(traits_pred, "4.Traits_association/traits_predictions_detailed.csv")
 top_traits_per_sample <- data.frame(Sample = rownames(traits_pred),Top_1 = NA, Top_2 = NA, Top_3 = NA, Top_4 = NA, Top_5 = NA,stringsAsFactors = FALSE)
 for(i in 1:nrow(traits_pred)) {
@@ -323,7 +298,7 @@ trait_stats <- data.frame(
   Negative_Samples = colSums(traits_pred < 0, na.rm = TRUE)
 )
 write.csv(trait_stats, "4.Traits_association/trait_statistics.csv", row.names = FALSE)
-cat("\n8. 生成汇总可视化图...\n")
+
 create_summary_plot <- function(traits_df, trait_classes, output_path) {
   summary_data <- trait_classes %>%
     mutate(Risk_Level = ifelse(Trait_Risk_Score > 0, "High Risk", "Low Risk"),
