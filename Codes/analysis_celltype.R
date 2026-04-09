@@ -2,14 +2,6 @@
 #' analysis_celltype.R
 # 输入: data_preprocess.txt, 以及跨组织人体成纤维细胞亚型参考图谱
 # 输出: 2.Identify_celltype文件夹及其所有分析结果
-#' 单细胞细胞类型注释函数
-#' @param query_matrix 查询矩阵，行是基因，列是细胞
-#' @param ref_matrix 参考矩阵，行是基因，列是细胞类型（平均表达）
-#' @param method 相似性计算方法："spearman", "pearson", "cosine", 或 "knn"
-#' @param top_genes 使用的特征基因数量，NULL表示使用所有基因
-#' @param min_confidence 最小置信度阈值，低于此值的标记为"Unknown"
-#' @param marker_list 标记基因列表（可选）
-#' @return 包含预测结果和置信度的列表
 annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_genes = 2000,min_confidence = 0.1,marker_list = NULL) {
   query_matrix<-read.table(query_matrix,header=T,sep="\t",row.names=1)
   ref_matrix<-read.table(ref_matrix,header=T,sep="\t",row.names=1)
