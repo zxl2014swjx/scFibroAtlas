@@ -1,5 +1,5 @@
 ################################## START ##################################
-#' data_preprocess.R
+# data_preprocess.R
 # 输入: 单细胞转录组表达矩阵，行是基因，列是细胞
 # 输出: 1.Data_preprocess文件夹及其所有分析结果
 data_preprocess <- function(input,gene_min_cells = 0.05,cell_min_genes = 200,cell_max_genes = NULL,cell_max_mito = 0.2,normalization = "log",scale_factor = 1e6,do_scaling = TRUE,remove_mito = FALSE,mito_pattern = "^MT-|^mt-",do_hvg = FALSE,n_hvg = 2000,verbose = TRUE,output_dir="1.Data_preprocess") {

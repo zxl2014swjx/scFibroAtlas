@@ -1,5 +1,5 @@
 ################################## START ##################################
-#' analysis_senescence.R
+# analysis_senescence.R
 # 输入: data_preprocess.txt, 用户自定义features基因列表
 # 输出: 3.Senescence_score文件夹及其所有分析结果
 required_packages <- c("reshape2", "pheatmap", "ggplot2")

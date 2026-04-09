@@ -1,5 +1,5 @@
 ################################## START ##################################
-#' analysis_celltype.R
+# analysis_celltype.R
 # 输入: data_preprocess.txt, 以及跨组织人体成纤维细胞亚型参考图谱
 # 输出: 2.Identify_celltype文件夹及其所有分析结果
 analysis_celltype <- function(query_matrix = NULL,ref_matrix = NULL,output_dir = "./2.Identify_celltype",project_name = "Example",create_plots = TRUE,plot_width = 12,plot_height = 10,plot_dpi = 300) {
