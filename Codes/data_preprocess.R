@@ -9,7 +9,7 @@
 #' @param cell_min_genes 细胞过滤条件：一个细胞至少要表达多少个基因，默认200
 #' @param cell_max_genes 细胞过滤条件：一个细胞最多表达多少个基因（用于去除doublet），默认NULL（不过滤）
 #' @param cell_max_mito 细胞过滤条件：线粒体基因表达百分比最大值，默认20%（0.2）
-#' @param normalization 标准化方法："log"（log1p），"zscore"，"cpm"，"scran" 或 "none"
+#' @param normalization 标准化方法："log"，"zscore"，"cpm"，"scran" 或 "none"，默认log
 #' @param scale_factor 缩放因子，用于CPM标准化，默认1e6
 #' @param do_scaling 是否在log转换后进行z-score缩放，默认TRUE
 #' @param remove_mito 是否移除线粒体基因，默认FALSE
