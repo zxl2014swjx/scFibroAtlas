@@ -2,7 +2,15 @@
 #' analysis_celltype.R
 # 输入: data_preprocess.txt, 以及跨组织人体成纤维细胞亚型参考图谱
 # 输出: 2.Identify_celltype文件夹及其所有分析结果
-annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_genes = 2000,min_confidence = 0.1,marker_list = NULL) {
+analysis_celltype <- function(query_matrix = NULL,ref_matrix = NULL,output_dir = "./2.Identify_celltype",project_name = "Example",create_plots = TRUE,plot_width = 12,plot_height = 10,plot_dpi = 300) {
+required_packages <- c("ggplot2", "RColorBrewer")
+  missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
+  if (length(missing_packages) > 0) {
+    stop(sprintf("请安装以下包: %s", paste(missing_packages, collapse = ", ")))}
+  library(ggplot2)
+  library(RColorBrewer)
+  if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)} 
+annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_genes = 2000,min_confidence = 0.1) {
   query_matrix<-read.table(query_matrix,header=T,sep="\t",row.names=1)
   ref_matrix<-read.table(ref_matrix,header=T,sep="\t",row.names=1)
   if (!is.matrix(query_matrix)) query_matrix <- as.matrix(query_matrix)
@@ -107,15 +115,6 @@ annotate_scRNA <- function(query_matrix, ref_matrix, method = "pearson",top_gene
     )
   ))
 }
-
-analysis_celltype <- function(query_matrix = NULL,ref_matrix = NULL,output_dir = "./sc_annotation_results",project_name = "scAnnotation",create_plots = TRUE,plot_width = 12,plot_height = 10,plot_dpi = 300) {
-required_packages <- c("ggplot2", "RColorBrewer")
-  missing_packages <- required_packages[!sapply(required_packages, requireNamespace, quietly = TRUE)]
-  if (length(missing_packages) > 0) {
-    stop(sprintf("请安装以下包: %s", paste(missing_packages, collapse = ", ")))}
-  library(ggplot2)
-  library(RColorBrewer)
-  if (!dir.exists(output_dir)) {dir.create(output_dir, recursive = TRUE)} 
   start_time <- Sys.time()
   annotation_result <- annotate_scRNA(
     query_matrix = query_matrix,
